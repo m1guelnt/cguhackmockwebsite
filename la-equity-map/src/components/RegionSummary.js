@@ -27,6 +27,8 @@ function RegionSummary({ summary, activeLayerIds, layers }) {
 
   const { count, averages, combinedScore, hospitalsInRegion } = summary;
   const label = getSeverityLabel(combinedScore || 0);
+  const hospitalsLayerActive = activeLayerIds.includes('hospitals');
+
 
   return (
     <div className="region-summary">
@@ -34,7 +36,7 @@ function RegionSummary({ summary, activeLayerIds, layers }) {
         <div>
           <h3>Selected area summary</h3>
           <p>{count} data points inside this rectangle.</p>
-          {typeof hospitalsInRegion === 'number' && (
+          {hospitalsLayerActive && typeof hospitalsInRegion === 'number' && (
             <p className="region-summary-hospitals">
               Hospitals &amp; clinics in this area:{' '}
               <strong>{hospitalsInRegion}</strong>

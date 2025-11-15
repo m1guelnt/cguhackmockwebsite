@@ -43,14 +43,15 @@ function HeatLayer({ points, viewMode }) {
   useEffect(() => {
     if (!points || points.length === 0) return;
 
-    const maxOpacity = viewMode === 'image' ? 0.7 : 0.55;
+    // stronger & always-visible cloud within our zoom range
+    const maxOpacity = viewMode === 'image' ? 0.9 : 0.75;
 
     const heatLayer = L.heatLayer(points, {
-      radius: 28,
-      blur: 22,
-      maxZoom: 17,
+      radius: 38,
+      blur: 32,
+      maxZoom: 17,      // match MapContainer maxZoom
       max: 1,
-      minOpacity: 0.12,
+      minOpacity: 0.4,  // never fully fade out
       maxOpacity,
       gradient: {
         0.0: 'rgba(0, 0, 255, 0.00)',      // Transparent low
@@ -71,7 +72,7 @@ function HeatLayer({ points, viewMode }) {
   return null;
 }
 
-// ---------- Convex hull helper (Andrew’s monotone chain) ----------
+// ---------- Convex hull helper ----------
 function computeConvexHullLatLng(rawPoints) {
   if (!rawPoints || rawPoints.length < 3) {
     return rawPoints.map((p) => [p.lat, p.lng]);
@@ -290,7 +291,7 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
         count += 1;
       });
 
-      const score = count ? sum / count : 0;
+      const score = count ? sum / count : 0; // 0–1 combined
       return { ...p, score, intensities };
     });
   }, [rawPoints, activeLayerIds, maxValues]);
@@ -314,6 +315,7 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
   const handleDrawCreated = (e) => {
     const layer = e.layer;
 
+    // keep only most recent rectangle
     if (drawGroupRef.current) {
       const fg = drawGroupRef.current;
       fg.eachLayer((l) => {
@@ -328,7 +330,7 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
       const sw = bounds.getSouthWest();
       const ne = bounds.getNorthEast();
 
-      // Extra safe: derive min/max in case of any oddities
+      // extra-safe bounds
       const latMin = Math.min(sw.lat, ne.lat);
       const latMax = Math.max(sw.lat, ne.lat);
       const lngMin = Math.min(sw.lng, ne.lng);
@@ -377,17 +379,15 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
           ? combinedIntensitySum / combinedIntensityCount
           : 0;
 
-      // ✅ hospitals ONLY inside the box, and only counted if that layer is on
-      const hospitalsInRegion = activeLayerIds.includes('hospitals')
-        ? hospitalPoints.filter((h) => {
-            return (
-              h.lat >= latMin &&
-              h.lat <= latMax &&
-              h.lng >= lngMin &&
-              h.lng <= lngMax
-            );
-          }).length
-        : 0;
+      // ✅ hospitals ONLY inside the rectangle, using strict >/<
+      const hospitalsInRegion = hospitalPoints.filter((h) => {
+        return (
+          h.lat > latMin &&
+          h.lat < latMax &&
+          h.lng > lngMin &&
+          h.lng < lngMax
+        );
+      }).length;
 
       if (onRegionSummaryChange) {
         onRegionSummaryChange({
@@ -422,9 +422,9 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
     <div className="map-leaflet-wrapper">
       <MapContainer
         center={LA_CENTER}
-        zoom={9.5}
+        zoom={10}
         minZoom={8}
-        maxZoom={14}
+        maxZoom={17}  // prevent zooming past the useful heat range
         scrollWheelZoom
         className="map-leaflet-container"
       >
@@ -473,6 +473,8 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
           <HeatLayer points={heatPoints} viewMode={viewMode} />
         )}
 
+        {/* ✅ NO monitoring station dots anymore */}
+
         {/* Hospitals overlay (toggle-driven) */}
         {activeLayerIds.includes('hospitals') &&
           hospitalPoints.map((h, idx) => (
@@ -498,44 +500,6 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
               )}
             </CircleMarker>
           ))}
-
-        {/* TEXT MODE ONLY: invisible probes for environmental tooltips */}
-        {viewMode === 'text' &&
-          scoredPoints.map((p, idx) => {
-            const score = p.score || 0;
-            if (score <= 0.02) return null;
-
-            const activeMetrics = activeLayerIds.filter((id) =>
-              Object.prototype.hasOwnProperty.call(METRIC_KEYS, id)
-            );
-            const activeText = activeMetrics
-              .map((id) => METRIC_LABELS[id])
-              .join(', ');
-
-            return (
-              <CircleMarker
-                key={`probe-${idx}`}
-                center={[p.lat, p.lng]}
-                radius={6}
-                pathOptions={{
-                  color: 'transparent',
-                  fillColor: 'transparent',
-                  fillOpacity: 0,
-                  weight: 0,
-                }}
-              >
-                <Tooltip direction="right" offset={[12, 0]}>
-                  <div style={{ fontSize: '0.78rem' }}>
-                    <strong>Combined risk score:</strong>{' '}
-                    {score.toFixed(2)}
-                    <br />
-                    <strong>Active layers:</strong>{' '}
-                    {activeText || 'None'}
-                  </div>
-                </Tooltip>
-              </CircleMarker>
-            );
-          })}
       </MapContainer>
 
       {/* Simple error indicator for hospitals, if needed */}
@@ -564,4 +528,5 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
 }
 
 export default MapView;
+
 
