@@ -163,11 +163,11 @@ const HOSPITAL_HEAT_OPTIONS = {
   blur: 80,
   minOpacity: 0.35,
   gradient: {
-    0.0: 'rgba(34, 197, 94, 1.0)',   // green
+    0.0: 'rgba(34, 197, 94, 1.0)', // green
     0.25: 'rgba(190, 242, 100, 1.0)', // light green
-    0.5: 'rgba(234, 179, 8, 1.0)',    // yellow
-    0.75: 'rgba(249, 115, 22, 1.0)',  // orange
-    1.0: 'rgba(220, 38, 38, 1.0)',    // red
+    0.5: 'rgba(234, 179, 8, 1.0)', // yellow
+    0.75: 'rgba(249, 115, 22, 1.0)', // orange
+    1.0: 'rgba(220, 38, 38, 1.0)', // red
   },
 };
 
@@ -191,7 +191,12 @@ function HospitalHeatLayer({ points, viewMode }) {
   return null;
 }
 
-function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
+function MapView({
+  activeLayerIds,
+  viewMode,
+  onRegionSummaryChange,
+  onBoundsChange, // <-- NEW PROP
+}) {
   const [rawPoints, setRawPoints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -411,7 +416,7 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
     [rawPoints]
   );
 
-  // ----- Rectangle drawing handlers (for region summary) -----
+  // ----- Rectangle drawing handlers (for region summary + bounds) -----
   const handleDrawCreated = (e) => {
     const layer = e.layer;
 
@@ -427,6 +432,35 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
 
     if (layer instanceof L.Rectangle) {
       const bounds = layer.getBounds();
+
+      // === NEW: compute lat/lng extents & send to parent + backend ===
+      const latMin = bounds.getSouth();
+      const latMax = bounds.getNorth();
+      const lngMin = bounds.getWest();
+      const lngMax = bounds.getEast();
+
+      const boundsPayload = {
+        north: latMax,
+        south: latMin,
+        east: lngMax,
+        west: lngMin,
+      };
+
+      // Notify React so the chatbot can use these bounds
+      if (onBoundsChange) {
+        onBoundsChange(boundsPayload);
+      }
+
+      // Send to FastAPI backend
+      fetch('http://127.0.0.1:8000/save-bounds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(boundsPayload),
+      })
+        .then((r) => r.json())
+        .then((d) => console.log('Saved bounds:', d))
+        .catch((err) => console.error('Error saving bounds:', err));
+      // === END NEW CODE ===
 
       const activeMetrics = Object.keys(METRIC_KEYS).filter((id) =>
         activeLayerIds.includes(id)
@@ -486,6 +520,10 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
   const handleDrawDeleted = () => {
     if (onRegionSummaryChange) {
       onRegionSummaryChange(null);
+    }
+    // also clear bounds when rectangle is removed
+    if (onBoundsChange) {
+      onBoundsChange(null);
     }
   };
 
@@ -578,14 +616,14 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
                   center={[p.lat, p.lng]}
                   radius={9} // slightly smaller
                   pathOptions={{
-                    color,                // stroke color
-                    opacity: 0.45,       // 🔉 softer stroke
-                    weight: 1.1,         // stroke width
+                    color, // stroke color
+                    opacity: 0.45, // softer stroke
+                    weight: 1.1, // stroke width
                     fillColor: color,
                     fillOpacity:
                       viewMode === 'image'
                         ? 0.22
-                        : 0.18, // 🔉 softer fill
+                        : 0.18, // softer fill
                   }}
                 >
                   {viewMode === 'text' && (
@@ -611,7 +649,7 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
               center={[h.lat, h.lng]}
               radius={6}
               pathOptions={{
-                color: '#0ea5e9',     // blue outline
+                color: '#0ea5e9', // blue outline
                 weight: 2.2,
                 fillColor: '#ffffff', // white fill
                 fillOpacity: 0.95,
