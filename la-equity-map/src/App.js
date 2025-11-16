@@ -20,6 +20,7 @@ function App() {
   const [activeLayerIds, setActiveLayerIds] = useState(['water']);
   const [viewMode, setViewMode] = useState('text'); // 'text' | 'image'
   const [regionSummary, setRegionSummary] = useState(null);
+  const [selectedBounds, setSelectedBounds] = useState(null);
 
   const handleToggleLayer = (layerId) => {
     setActiveLayerIds((prev) =>
@@ -68,13 +69,14 @@ function App() {
                 activeLayerIds={activeLayerIds}
                 viewMode={viewMode}
                 onRegionSummaryChange={handleRegionSummaryChange}
+                onBoundsChange={setSelectedBounds}
               />
             </div>
           </section>
 
           {/* Chat card – now directly under the map, full width of left column */}
           <section className="chat-card">
-            <ChatbotPlaceholder />
+            <ChatbotPlaceholder selectedBounds={selectedBounds} />
           </section>
         </div>
 

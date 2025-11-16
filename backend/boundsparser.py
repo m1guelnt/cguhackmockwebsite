@@ -2,7 +2,7 @@ import json
 import csv
 
 CES_FILE = "water_data.csv"
-HOSPITALS_FILE = "/Users/zaan/LAccess/cguhackmockwebsite/la-equity-map/public/hospitals.csv"
+HOSPITALS_FILE = "/Users/miguelnav/Downloads/cguhackathon/cguhackmockwebsite/la-equity-map/public/hospitals.csv"
 OUTPUT_FILE = "filtered_combined_output.csv"
 
 def process_file(filename, lat_col, lon_col, bounds, writer):
