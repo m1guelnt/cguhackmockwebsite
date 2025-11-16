@@ -202,7 +202,7 @@ body {
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   flex: 1;
-  min-height: 420px;
+  min-height: 600px;
 }
 
 .map-leaflet-wrapper {
@@ -363,3 +363,499 @@ body {
   padding: 0.3rem 0.7rem;
   font-size: 0.78rem;
 }
+
+/* Root container */
+.app-root {
+  min-height: 100vh;
+  background: #f5f5f9;
+  padding: 24px 24px 32px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text',
+    'Helvetica Neue', sans-serif;
+}
+
+/* Title + subtitle */
+.app-header {
+  margin-bottom: 16px;
+}
+
+.app-title {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.app-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+/* Main row: map + summary side by side */
+.app-main {
+  display: flex;
+  gap: 20px;
+  align-items: stretch;
+  margin-top: 12px;
+}
+
+/* Map column */
+.app-main-left {
+  flex: 4;
+  min-width: 0;
+}
+
+/* Selected area summary column */
+.app-main-right {
+  flex: 2;
+  min-width: 280px;
+}
+
+/* Bottom row: chat panel full width */
+.app-bottom {
+  margin-top: 18px;
+}
+
+/* Make the summary column scroll if there is a lot of content */
+.app-main-right > .region-summary {
+  max-height: calc(100vh - 260px);
+  overflow-y: auto;
+}
+
+/* ====== SELECTED AREA SUMMARY PANEL ====== */
+
+.region-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: #111827;
+}
+
+.region-summary--empty {
+  padding: 0.75rem 0;
+}
+
+.region-summary-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.region-summary-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.region-summary-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.region-summary-count-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.region-summary-hospitals-line {
+  font-size: 0.8rem;
+  color: #0f766e;
+}
+
+.region-summary-hospitals-count {
+  font-weight: 600;
+}
+
+/* Combined burden card */
+
+.region-summary-combined-card {
+  background: linear-gradient(135deg, #fef2f2, #fff7ed);
+  border-radius: 16px;
+  border: 2px solid #fecaca;
+  padding: 1rem 1.1rem;
+}
+
+.region-summary-combined-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.region-summary-combined-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.region-summary-combined-value {
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.region-summary-combined-denom {
+  font-size: 1.4rem;
+  color: #9ca3af;
+}
+
+.region-summary-combined-subtitle {
+  margin: 0.6rem 0 0;
+  font-size: 0.8rem;
+  color: #b91c1c;
+}
+
+/* Metric cards */
+
+.region-summary-metric-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.region-summary-metric-card {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 0.75rem 0.85rem;
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  transition: box-shadow 120ms ease, transform 120ms ease;
+}
+
+.region-summary-metric-card:hover {
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
+}
+
+.region-summary-metric-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.35rem;
+}
+
+.region-summary-metric-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #60a5fa, #22c55e);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: #ffffff;
+}
+
+.region-summary-metric-text {
+  flex: 1;
+}
+
+.region-summary-metric-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.region-summary-metric-subtitle {
+  margin: 0.1rem 0 0;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.region-summary-metric-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.region-summary-metric-value-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.region-summary-metric-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.region-summary-metric-unit {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.region-summary-metric-no-data {
+  font-size: 0.82rem;
+  font-style: italic;
+  color: #9ca3af;
+}
+
+/* Severity pills */
+
+.region-pill {
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+}
+
+.region-pill--very-high {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.region-pill--high {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.region-pill--moderate {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.region-pill--low {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.region-pill--no-data {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+/* Narrative + button */
+
+.region-summary-narrative {
+  margin-top: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid #bfdbfe;
+  background: linear-gradient(90deg, #eff6ff, #e0f2fe);
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+
+.region-summary-button {
+  margin-top: 0.5rem;
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.7rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.35);
+  cursor: pointer;
+}
+
+.region-summary-button:hover {
+  filter: brightness(1.05);
+}
+
+.region-summary-button-icon {
+  font-size: 1rem;
+}
+
+/* Empty text */
+.region-summary-empty-text {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+/* ====== Chatbot UI refinements ====== */
+
+.chat-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  padding: 0.85rem 0.9rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 230px;
+  max-height: 260px;
+}
+
+/* Header */
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.55rem;
+  margin: -0.1rem -0.1rem 0.6rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+}
+
+.chat-header-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+}
+
+.chat-header-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-header-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.chat-header-subtitle {
+  font-size: 0.7rem;
+  color: #dbeafe;
+}
+
+/* Messages window */
+
+.chat-window-placeholder {
+  flex: 1;
+  padding: 0.55rem 0.5rem;
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, #f9fafb, #ffffff);
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  overflow-y: auto;
+}
+
+/* Bubbles */
+
+.chat-bubble {
+  max-width: 80%;
+  padding: 0.4rem 0.7rem;
+  border-radius: 14px;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.chat-bubble--system {
+  align-self: flex-start;
+  background: #e5e7eb;
+  border-bottom-left-radius: 2px;
+}
+
+.chat-bubble--user {
+  align-self: flex-end;
+  background: linear-gradient(90deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  border-bottom-right-radius: 2px;
+}
+
+/* Suggestions */
+
+.chat-suggestions {
+  margin-top: 0.5rem;
+}
+
+.chat-suggestions-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+}
+
+.chat-suggestions-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.chat-suggestion-chip {
+  border: none;
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  background: #dbeafe;
+  color: #1d4ed8;
+  cursor: pointer;
+  transition: background 120ms ease, transform 80ms ease;
+}
+
+.chat-suggestion-chip:hover {
+  background: #bfdbfe;
+  transform: translateY(-1px);
+}
+
+/* Input row */
+
+.chat-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.chat-input {
+  flex: 1;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  background: #f9fafb;
+}
+
+.chat-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: #ffffff;
+}
+
+.chat-send-btn {
+  border-radius: 999px;
+  border: none;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  background: linear-gradient(90deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 100ms ease, transform 80ms ease;
+}
+
+.chat-send-btn:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.chat-send-btn:not(:disabled):hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+

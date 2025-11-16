@@ -25,7 +25,7 @@ const METRIC_KEYS = {
   hazw: 'Haz. Waste Pctl',
 };
 
-const METRIC_LABELS = {
+export const METRIC_LABELS = {
   water: 'Water Quality (Drinking Water Pctl)',
   pm25: 'PM2.5 Air Pollution',
   asthma: 'Asthma Burden',
@@ -36,43 +36,63 @@ const METRIC_LABELS = {
 
 const LA_CENTER = [34.0522, -118.2437];
 
-// ---------- HeatLayer helper using leaflet.heat ----------
-function HeatLayer({ points, viewMode }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!points || points.length === 0) return;
-
-    // stronger & always-visible cloud within our zoom range
-    const maxOpacity = viewMode === 'image' ? 0.9 : 0.75;
-
-    const heatLayer = L.heatLayer(points, {
-      radius: 38,
-      blur: 32,
-      maxZoom: 17,      // match MapContainer maxZoom
-      max: 1,
-      minOpacity: 0.4,  // never fully fade out
-      maxOpacity,
-      gradient: {
-        0.0: 'rgba(0, 0, 255, 0.00)',      // Transparent low
-        0.1: 'rgba(135, 206, 250, 0.25)',  // Light sky blue
-        0.25: 'rgba(173, 216, 230, 0.35)', // Soft blue
-        0.4: 'rgba(255, 255, 102, 0.50)',  // Yellow
-        0.6: 'rgba(255, 165, 0, 0.60)',    // Orange
-        0.8: 'rgba(255, 69, 0, 0.75)',     // Strong orange-red
-        1.0: 'rgba(255, 0, 0, 0.95)',      // Deep red
-      },
-    }).addTo(map);
-
-    return () => {
-      map.removeLayer(heatLayer);
-    };
-  }, [map, points, viewMode]);
-
-  return null;
+/**
+ * Helper to linearly interpolate between two numbers.
+ */
+function lerp(a, b, t) {
+  return a + (b - a) * t;
 }
 
-// ---------- Convex hull helper ----------
+/**
+ * Given t in [0, 1], return a green→yellow→orange→red color as hex.
+ *
+ * 0   → deep green (good)
+ * ~0.3→ lighter green
+ * ~0.5→ yellow
+ * ~0.75→ orange
+ * 1   → red (bad)
+ */
+function getColorForIntensity(t) {
+  if (Number.isNaN(t) || t <= 0) {
+    t = 0;
+  }
+  if (t > 1) t = 1;
+
+  let r, g, b;
+
+  if (t <= 0.33) {
+    // green (#22c55e) to yellow (#eab308)
+    const local = t / 0.33;
+    const start = { r: 34, g: 197, b: 94 };
+    const end = { r: 234, g: 179, b: 8 };
+    r = Math.round(lerp(start.r, end.r, local));
+    g = Math.round(lerp(start.g, end.g, local));
+    b = Math.round(lerp(start.b, end.b, local));
+  } else if (t <= 0.66) {
+    // yellow (#eab308) to orange (#f97316)
+    const local = (t - 0.33) / 0.33;
+    const start = { r: 234, g: 179, b: 8 };
+    const end = { r: 249, g: 115, b: 22 };
+    r = Math.round(lerp(start.r, end.r, local));
+    g = Math.round(lerp(start.g, end.g, local));
+    b = Math.round(lerp(start.b, end.b, local));
+  } else {
+    // orange (#f97316) to red (#b91c1c)
+    const local = (t - 0.66) / 0.34;
+    const start = { r: 249, g: 115, b: 22 };
+    const end = { r: 185, g: 28, b: 28 };
+    r = Math.round(lerp(start.r, end.r, local));
+    g = Math.round(lerp(start.g, end.g, local));
+    b = Math.round(lerp(start.b, end.b, local));
+  }
+
+  const toHex = (x) => x.toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+/**
+ * Convex hull helper for outlining the data region.
+ */
 function computeConvexHullLatLng(rawPoints) {
   if (!rawPoints || rawPoints.length < 3) {
     return rawPoints.map((p) => [p.lat, p.lng]);
@@ -115,7 +135,62 @@ function computeConvexHullLatLng(rawPoints) {
   return hull.map((p) => [p.y, p.x]);
 }
 
-// ---------- Main MapView ----------
+/**
+ * Simple haversine distance (in kilometers) for hospital proximity.
+ */
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371; // km
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Hospital access heat layer
+ * Green = close to a hospital (good)
+ * Red   = far from any hospital (bad)
+ */
+const HOSPITAL_HEAT_OPTIONS = {
+  radius: 40,
+  blur: 80,
+  minOpacity: 0.35,
+  gradient: {
+    0.0: 'rgba(34, 197, 94, 1.0)',   // green
+    0.25: 'rgba(190, 242, 100, 1.0)', // light green
+    0.5: 'rgba(234, 179, 8, 1.0)',    // yellow
+    0.75: 'rgba(249, 115, 22, 1.0)',  // orange
+    1.0: 'rgba(220, 38, 38, 1.0)',    // red
+  },
+};
+
+function HospitalHeatLayer({ points, viewMode }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!points || points.length === 0) return;
+
+    const heatLayer = L.heatLayer(points, {
+      ...HOSPITAL_HEAT_OPTIONS,
+      maxZoom: 13,
+      maxOpacity: viewMode === 'image' ? 0.9 : 0.85,
+    }).addTo(map);
+
+    return () => {
+      map.removeLayer(heatLayer);
+    };
+  }, [map, points, viewMode]);
+
+  return null;
+}
+
 function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
   const [rawPoints, setRawPoints] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -194,7 +269,7 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
     };
   }, []);
 
-  // ----- Load hospitals from hospitals.csv -----
+  // ----- Load hospitals from hospitals.csv (dedup by location) -----
   useEffect(() => {
     let cancelled = false;
 
@@ -216,6 +291,8 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
         const cityIdx = idx('City/Town');
 
         const hospitals = [];
+        const seen = new Set();
+
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i];
           if (!line.trim()) continue;
@@ -224,6 +301,10 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
           const lat = parseFloat(parts[latIdx]);
           const lng = parseFloat(parts[lngIdx]);
           if (Number.isNaN(lat) || Number.isNaN(lng)) continue;
+
+          const key = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
 
           hospitals.push({
             lat,
@@ -267,43 +348,62 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
     return max;
   }, [rawPoints]);
 
-  // ----- Add normalized intensities + combined 0–1 score -----
+  /**
+   * For each point:
+   *  - normalize each metric to [0,1] ⇒ intensities[id]
+   *  - compute combinedScore = average intensity across *active* layers,
+   *    for the summary chip; visualization is per-layer circles.
+   */
   const scoredPoints = useMemo(() => {
-    const activeMetrics = Object.keys(METRIC_KEYS).filter((id) =>
-      activeLayerIds.includes(id)
-    );
-
-    if (activeMetrics.length === 0) {
-      return rawPoints.map((p) => ({ ...p, score: 0, intensities: {} }));
-    }
+    const metrics = Object.keys(METRIC_KEYS);
 
     return rawPoints.map((p) => {
       const intensities = {};
-      let sum = 0;
-      let count = 0;
+      let sumActive = 0;
+      let countActive = 0;
 
-      activeMetrics.forEach((id) => {
+      metrics.forEach((id) => {
         const v = p.values[id] || 0;
         const max = maxValues[id] || 1;
-        const intensity = max > 0 ? v / max : 0;
+        const intensity = max > 0 ? v / max : 0; // 0–1
+
         intensities[id] = intensity;
-        sum += intensity;
-        count += 1;
+
+        if (activeLayerIds.includes(id)) {
+          sumActive += intensity;
+          countActive += 1;
+        }
       });
 
-      const score = count ? sum / count : 0; // 0–1 combined
-      return { ...p, score, intensities };
-    });
-  }, [rawPoints, activeLayerIds, maxValues]);
+      const combinedScore = countActive ? sumActive / countActive : 0; // 0–1
 
-  // ----- Heatmap points: [lat, lng, intensity] -----
-  const heatPoints = useMemo(
-    () =>
-      scoredPoints
-        .filter((p) => p.score && p.score > 0.02)
-        .map((p) => [p.lat, p.lng, p.score]),
-    [scoredPoints]
-  );
+      return { ...p, intensities, combinedScore };
+    });
+  }, [rawPoints, maxValues, activeLayerIds]);
+
+  // ----- Hospital access heat points (distance to nearest hospital) -----
+  const hospitalHeatPoints = useMemo(() => {
+    if (!hospitalPoints.length || !rawPoints.length) return [];
+
+    // Compute min distance to any hospital for each environmental point
+    const distances = rawPoints.map((p) => {
+      let minKm = Infinity;
+      hospitalPoints.forEach((h) => {
+        const d = haversineKm(p.lat, p.lng, h.lat, h.lng);
+        if (d < minKm) minKm = d;
+      });
+      return minKm;
+    });
+
+    const maxDist = Math.max(...distances.filter((d) => Number.isFinite(d))) || 1;
+
+    // Normalize distances to [0,1]: 0 = close (good), 1 = far (bad)
+    return rawPoints.map((p, idx) => {
+      const d = distances[idx];
+      const t = maxDist > 0 ? d / maxDist : 0;
+      return [p.lat, p.lng, t];
+    });
+  }, [hospitalPoints, rawPoints]);
 
   // ----- Convex hull outline around all environmental points -----
   const hullLatLngs = useMemo(
@@ -327,27 +427,14 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
 
     if (layer instanceof L.Rectangle) {
       const bounds = layer.getBounds();
-      const sw = bounds.getSouthWest();
-      const ne = bounds.getNorthEast();
-
-      // extra-safe bounds
-      const latMin = Math.min(sw.lat, ne.lat);
-      const latMax = Math.max(sw.lat, ne.lat);
-      const lngMin = Math.min(sw.lng, ne.lng);
-      const lngMax = Math.max(sw.lng, ne.lng);
 
       const activeMetrics = Object.keys(METRIC_KEYS).filter((id) =>
         activeLayerIds.includes(id)
       );
 
-      const pointsInRegion = scoredPoints.filter((p) => {
-        return (
-          p.lat >= latMin &&
-          p.lat <= latMax &&
-          p.lng >= lngMin &&
-          p.lng <= lngMax
-        );
-      });
+      const pointsInRegion = scoredPoints.filter((p) =>
+        bounds.contains(L.latLng(p.lat, p.lng))
+      );
 
       const count = pointsInRegion.length;
 
@@ -358,13 +445,15 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
       activeMetrics.forEach((id) => {
         let sum = 0;
         let c = 0;
+
         pointsInRegion.forEach((p) => {
-          const v = p.values[id];
+          const v = p.values?.[id];
           if (v != null) {
             sum += v;
             c += 1;
           }
         });
+
         averages[id] = c ? sum / c : null;
 
         pointsInRegion.forEach((p) => {
@@ -379,15 +468,9 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
           ? combinedIntensitySum / combinedIntensityCount
           : 0;
 
-      // ✅ hospitals ONLY inside the rectangle, using strict >/<
-      const hospitalsInRegion = hospitalPoints.filter((h) => {
-        return (
-          h.lat > latMin &&
-          h.lat < latMax &&
-          h.lng > lngMin &&
-          h.lng < lngMax
-        );
-      }).length;
+      const hospitalsInRegion = hospitalPoints.filter((h) =>
+        bounds.contains(L.latLng(h.lat, h.lng))
+      ).length;
 
       if (onRegionSummaryChange) {
         onRegionSummaryChange({
@@ -424,7 +507,7 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
         center={LA_CENTER}
         zoom={10}
         minZoom={8}
-        maxZoom={17}  // prevent zooming past the useful heat range
+        maxZoom={14}
         scrollWheelZoom
         className="map-leaflet-container"
       >
@@ -468,25 +551,70 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
           />
         )}
 
-        {/* HEATMAP CLOUD – smooth gradient */}
-        {heatPoints.length > 0 && (
-          <HeatLayer points={heatPoints} viewMode={viewMode} />
-        )}
+        {/* ✅ Hospital access heatmap (green = close, red = far) */}
+        {activeLayerIds.includes('hospitals') &&
+          hospitalHeatPoints.length > 0 && (
+            <HospitalHeatLayer
+              points={hospitalHeatPoints}
+              viewMode={viewMode}
+            />
+          )}
 
-        {/* ✅ NO monitoring station dots anymore */}
+        {/* ✅ PER-LAYER TRANSPARENT CIRCLES (softened colors) */}
+        {activeLayerIds
+          .filter((id) => METRIC_KEYS[id]) // only metric layers, not hospitals
+          .map((layerId) =>
+            scoredPoints.map((p, idx) => {
+              const base = p.intensities?.[layerId] ?? 0;
+              if (base <= 0) return null;
 
-        {/* Hospitals overlay (toggle-driven) */}
+              // Slight boost so mid values still show nicely
+              const intensity = Math.sqrt(base); // 0–1
+              const color = getColorForIntensity(intensity);
+
+              return (
+                <CircleMarker
+                  key={`${layerId}-${idx}`}
+                  center={[p.lat, p.lng]}
+                  radius={9} // slightly smaller
+                  pathOptions={{
+                    color,                // stroke color
+                    opacity: 0.45,       // 🔉 softer stroke
+                    weight: 1.1,         // stroke width
+                    fillColor: color,
+                    fillOpacity:
+                      viewMode === 'image'
+                        ? 0.22
+                        : 0.18, // 🔉 softer fill
+                  }}
+                >
+                  {viewMode === 'text' && (
+                    <Tooltip direction="top" offset={[0, -4]}>
+                      <div style={{ fontSize: '0.75rem' }}>
+                        <strong>{METRIC_LABELS[layerId]}</strong>
+                        <br />
+                        Relative intensity:{' '}
+                        {(intensity * 100).toFixed(0)}%
+                      </div>
+                    </Tooltip>
+                  )}
+                </CircleMarker>
+              );
+            })
+          )}
+
+        {/* Hospitals overlay – white markers with blue outline */}
         {activeLayerIds.includes('hospitals') &&
           hospitalPoints.map((h, idx) => (
             <CircleMarker
               key={`hospital-${idx}`}
               center={[h.lat, h.lng]}
-              radius={5}
+              radius={6}
               pathOptions={{
-                color: '#0f766e',
-                weight: 1.5,
-                fillColor: '#a7f3d0',
-                fillOpacity: 0.8,
+                color: '#0ea5e9',     // blue outline
+                weight: 2.2,
+                fillColor: '#ffffff', // white fill
+                fillOpacity: 0.95,
               }}
             >
               {viewMode === 'text' && (
@@ -502,14 +630,12 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
           ))}
       </MapContainer>
 
-      {/* Simple error indicator for hospitals, if needed */}
       {hospitalError && (
         <div className="map-error map-error--overlay">
           {hospitalError}
         </div>
       )}
 
-      {/* Icon-only overlay strip for image mode */}
       {viewMode === 'image' && (
         <div className="map-image-overlay" aria-hidden="true">
           <div className="map-image-pill">
@@ -528,5 +654,3 @@ function MapView({ activeLayerIds, viewMode, onRegionSummaryChange }) {
 }
 
 export default MapView;
-
-
